@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tra cứu tương tác vắc xin</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .dropdown-container {
+            margin-bottom: 20px;
+        }
+        input {
+            width: 300px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .main-flex {
+            display: flex;
+            gap: 32px;
+        }
+        .selected-teams, .results {
+            flex: 1;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            min-width: 260px;
+            box-shadow: 0 2px 8px rgba(24,119,242,0.08);
+        }
+        .selected-teams {
+            border: 2px solid #1877F2;
+        }
+        .results {
+            border: 2px solid #42b72a;
+        }
+        h2 {
+            margin-top: 0;
+            color: #1877F2;
+        }
+        ul {
+            list-style-type: decimal;
+            padding-left: 20px;
+        }
+        li {
+            margin-bottom: 8px;
+            font-size: 1.06em;
+        }
+        @media (max-width: 800px) {
+            .main-flex {
+                flex-direction: column;
+                gap: 0;
+            }
+            .selected-teams, .results {
+                margin-bottom: 20px;
+            }
+        }
+        /* Gợi ý autocomplete */
+        #suggestions {
+            border: 1px solid #ccc;
+            max-height: 150px;
+            overflow-y: auto;
+            display: none;
+            background: #fff;
+            position: absolute;
+            z-index: 10;
+            width: 300px;
+        }
+        #suggestions div {
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+        #suggestions div:hover {
+            background: #e7f3ff;
+        }
+        .dropdown-container {
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <h1>TƯƠNG TÁC VẮC XIN</h1>
+    <p>Nhập tên vắc xin để tra cứu:</p>
+
+    <!-- Dropdown gợi ý -->
+    <div class="dropdown-container">
+        <input type="text" id="team-input" placeholder="Nhập tên vắc xin...">
+        <div id="suggestions"></div>
+    </div>
+
+    <div class="main-flex">
+        <!-- Phần hiển thị danh sách các hoạt chất đã chọn -->
+        <div class="selected-teams">
+            <h2>Các vắc xin đã chọn:</h2>
+            <ul id="selected-teams-list"></ul>
+        </div>
+        <!-- Kết quả hiển thị -->
+        <div class="results">
+            <h2>Các tương tác giữa các vắc xin đã chọn:</h2>
+            <ul id="match-results"></ul>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
