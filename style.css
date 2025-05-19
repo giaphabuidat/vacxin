@@ -70,6 +70,34 @@ input:focus {
     background-color: #ffebee; /* Màu hồng nhạt khi hover */
 }
 
+.main-flex {
+    display: flex;
+    gap: 32px;
+}
+
+/* Tỷ lệ 3:7 cho hai cột */
+.selected-teams {
+    flex: 3;
+    min-width: 0;
+}
+.results {
+    flex: 7;
+    min-width: 0;
+}
+
+/* Responsive cho màn hình nhỏ */
+@media (max-width: 900px) {
+    .main-flex {
+        flex-direction: column;
+        gap: 0;
+    }
+    .selected-teams, .results {
+        width: 100%;
+        margin-bottom: 20px;
+    }
+}
+
+
 /* Kết quả */
 .results, .selected-teams {
     margin-top: 20px;
