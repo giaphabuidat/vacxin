@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tra cứu tương tác vắc xin</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.css" rel="stylesheet"/>
+Trước thẻ </body>:
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -116,16 +118,23 @@
     <p>Nhập tên vắc xin để tra cứu hoặc dùng camera để nhận diện từ đơn:</p>
 
     <!-- Phần OCR và Camera -->
-    <div id="ocr-section">
-        <h3>Quét đơn vắc xin bằng camera</h3>
-        <video id="video" width="320" height="240" autoplay></video>
-        <button id="capture-btn">Chụp ảnh</button>
-        <div id="ocr-result"></div>
+  <div id="ocr-section">
+    <h3>Quét đơn vắc xin bằng camera hoặc tải ảnh</h3>
+    <video id="video" width="320" height="240" autoplay style="display:block; margin:auto;"></video>
+    <button id="capture-btn">Chụp ảnh</button>
+    <div style="margin: 12px 0;">
+        <label for="upload-image" style="font-weight:600;">Hoặc tải lên ảnh đơn thuốc:</label>
+        <input type="file" id="upload-image" accept="image/*">
     </div>
-    <div style="margin-bottom: 16px;">
-  <label for="upload-image" style="font-weight:600;">Hoặc tải lên ảnh đơn thuốc:</label><br>
-  <input type="file" id="upload-image" accept="image/*">
+    <!-- Khung crop preview -->
+    <div id="capture-preview" style="display:none; text-align:center; margin:16px 0;">
+        <img id="cropped-image" style="max-width:100%; max-height:300px; border:1px solid #ccc;"/>
+        <br>
+        <button id="confirm-crop-btn" style="margin-top:10px;">Cắt ảnh & OCR</button>
     </div>
+    <div id="ocr-result" style="white-space: pre-line; background: #f8f9fa; padding: 12px; border-radius: 6px; margin-top: 10px;"></div>
+</div>
+
 
     <!-- Autocomplete -->
     <div class="dropdown-container">
@@ -150,12 +159,17 @@
     <script src="script.js"></script>
     <!-- Script xử lý camera & OCR -->
     <script>
-    // Khởi tạo camera
+    // Khởi tạo các biến cần thiết
     const video = document.getElementById('video');
     const captureBtn = document.getElementById('capture-btn');
     const ocrResult = document.getElementById('ocr-result');
+    const preview = document.getElementById('capture-preview');
+    const croppedImg = document.getElementById('cropped-image');
+    const confirmCropBtn = document.getElementById('confirm-crop-btn');
     let isProcessing = false;
+    let cropper;
 
+    // Khởi động camera
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
         .then(stream => {
             video.srcObject = stream;
@@ -164,37 +178,71 @@
             ocrResult.textContent = 'Lỗi truy cập camera: ' + err.message;
         });
 
-    captureBtn.addEventListener('click', async () => {
+    // Xử lý sự kiện chụp ảnh
+    captureBtn.addEventListener('click', () => {
         if (isProcessing) return;
         isProcessing = true;
+        
         try {
-            // Chụp ảnh từ video
+            // Tạo canvas và chụp ảnh
             const canvas = document.createElement('canvas');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video, 0, 0);
 
+            // Hiển thị ảnh để crop
+            croppedImg.src = canvas.toDataURL('image/png');
+            preview.style.display = 'block';
+
+            // Khởi tạo cropper
+            if (cropper) cropper.destroy();
+            cropper = new Cropper(croppedImg, {
+                aspectRatio: NaN,
+                viewMode: 1,
+                autoCropArea: 1,
+                movable: true,
+                zoomable: true
+            });
+
+        } catch (err) {
+            ocrResult.textContent = 'Lỗi: ' + err.message;
+        } finally {
+            isProcessing = false;
+        }
+    });
+
+    // Xử lý xác nhận crop
+    confirmCropBtn.addEventListener('click', async () => {
+        if (!cropper || isProcessing) return;
+        isProcessing = true;
+        
+        try {
             ocrResult.textContent = 'Đang nhận diện...';
+            
+            // Lấy ảnh đã crop
+            cropper.getCroppedCanvas().toBlob(async (blob) => {
+                const { data: { text } } = await Tesseract.recognize(
+                    blob,
+                    'eng+vie',
+                    { logger: m => console.log(m) }
+                );
 
-            // Nhận diện văn bản
-            const { data: { text } } = await Tesseract.recognize(
-                canvas,
-                'eng+vie',
-                { logger: m => console.log(m) }
-            );
+                // Xử lý kết quả
+                const cleanedText = text
+                    .replace(/[^a-zA-Z0-9à-ỹ\s]/gi, '')
+                    .split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.length > 2);
 
-            // Xử lý kết quả
-            const cleanedText = text
-                .replace(/[^a-zA-Z0-9à-ỹ\s]/gi, '')
-                .split('\n')
-                .map(line => line.trim())
-                .filter(line => line.length > 2);
+                ocrResult.textContent = 'Đã nhận diện:\n' + cleanedText.join('\n');
 
-            ocrResult.textContent = 'Đã nhận diện:\n' + cleanedText.join('\n');
-
-            // Tự động thêm tối đa 3 vắc xin đầu tiên
-            const vaccinesToAdd = cleanedText.slice(0, 3);
-            vaccinesToAdd.forEach(addVaccineFromOCR);
+                // Tự động thêm vắc xin
+                cleanedText.slice(0, 3).forEach(addVaccineFromOCR);
+                
+                // Reset giao diện
+                preview.style.display = 'none';
+                cropper.destroy();
+            }, 'image/png');
 
         } catch (err) {
             ocrResult.textContent = 'Lỗi OCR: ' + err.message;
@@ -203,24 +251,20 @@
         }
     });
 
-    // Hàm tự động thêm vắc xin từ OCR
+    // Hàm thêm vắc xin từ OCR (giữ nguyên)
     function addVaccineFromOCR(vaccineName) {
         const input = document.getElementById('team-input');
         input.value = vaccineName;
-
-        // Kích hoạt sự kiện input để hiện autocomplete
         const event = new Event('input', { bubbles: true });
         input.dispatchEvent(event);
-
-        // Tự động chọn suggestion đầu tiên sau 300ms
+        
         setTimeout(() => {
             const firstSuggestion = document.querySelector('#suggestions div');
-            if (firstSuggestion) {
-                firstSuggestion.click();
-            }
+            if (firstSuggestion) firstSuggestion.click();
         }, 300);
     }
-    </script>
+</script>
+
     <script>
 document.getElementById('upload-image').addEventListener('change', async function(e) {
     const file = e.target.files[0];
@@ -249,6 +293,7 @@ document.getElementById('upload-image').addEventListener('change', async functio
     }
 });
 </script>
-
+<script src="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.js"></script>
+<script src="https://unpkg.com/tesseract.js@v6.0.0/dist/tesseract.min.js"></script>
 </body>
 </html>
