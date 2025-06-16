@@ -2,14 +2,23 @@ let matches = [];
 let teams = [];
 let selectedTeams = [];
 
-// Đọc dữ liệu từ file JSON và khởi tạo ứng dụng
+// Thêm hàm selectVaccine để tích hợp với OCR
+function selectVaccine(team) {
+    if (!selectedTeams.includes(team)) {
+        selectedTeams.push(team);
+        updateSelectedTeams();
+        updateMatches();
+    }
+    input.value = '';
+    suggestions.style.display = 'none';
+}
+
 async function init() {
     try {
         const response = await fetch('matches.json');
         const data = await response.json();
         matches = data.matches;
         teams = Array.from(new Set(matches.flatMap(match => [match.vax1, match.vax2])));
-        // Khởi tạo các sự kiện và cập nhật giao diện
         setupInputEvents();
         updateSelectedTeams();
         updateMatches();
@@ -18,13 +27,11 @@ async function init() {
     }
 }
 
-// Các phần tử HTML
 const input = document.getElementById("team-input");
 const suggestions = document.getElementById("suggestions");
 const matchResults = document.getElementById("match-results");
 const selectedTeamsList = document.getElementById("selected-teams-list");
 
-// Gợi ý autocomplete khi nhập
 function setupInputEvents() {
     input.addEventListener("input", () => {
         const value = input.value.toLowerCase();
@@ -44,22 +51,13 @@ function setupInputEvents() {
             suggestionItem.textContent = team;
             suggestionItem.style.padding = "10px";
             suggestionItem.style.cursor = "pointer";
-            suggestionItem.addEventListener("click", () => {
-                if (!selectedTeams.includes(team)) {
-                    selectedTeams.push(team);
-                    updateSelectedTeams();
-                    updateMatches();
-                }
-                input.value = "";
-                suggestions.style.display = "none";
-            });
+            suggestionItem.addEventListener("click", () => selectVaccine(team));
             suggestions.appendChild(suggestionItem);
         });
 
         suggestions.style.display = filteredTeams.length > 0 ? "block" : "none";
     });
 
-    // Ẩn gợi ý khi click ra ngoài
     document.addEventListener("click", (e) => {
         if (!e.target.closest(".dropdown-container")) {
             suggestions.style.display = "none";
@@ -67,7 +65,6 @@ function setupInputEvents() {
     });
 }
 
-// Cập nhật danh sách các đội đã chọn
 function updateSelectedTeams() {
     selectedTeamsList.innerHTML = "";
 
@@ -75,7 +72,6 @@ function updateSelectedTeams() {
         const listItem = document.createElement("li");
         listItem.textContent = `${idx + 1}. ${team}`;
 
-        // Nút xóa đội khỏi danh sách
         const removeButton = document.createElement("button");
         removeButton.textContent = "X";
         removeButton.style.marginLeft = "10px";
@@ -90,7 +86,6 @@ function updateSelectedTeams() {
     });
 }
 
-// Cập nhật danh sách các tương tác giữa các vắc xin đã chọn
 function updateMatches() {
     matchResults.innerHTML = "";
 
@@ -109,5 +104,4 @@ function updateMatches() {
     }
 }
 
-// Khởi động ứng dụng
 init();
