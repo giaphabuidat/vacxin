@@ -12,6 +12,7 @@
         }
         .dropdown-container {
             margin-bottom: 20px;
+            position: relative;
         }
         input {
             width: 300px;
@@ -75,34 +76,146 @@
         #suggestions div:hover {
             background: #e7f3ff;
         }
-        .dropdown-container {
-            position: relative;
+        /* OCR Section */
+        #ocr-section {
+            max-width: 500px;
+            margin: 40px auto 32px auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        #ocr-section video {
+            width: 100%;
+            height: auto;
+            border-radius: 6px;
+            transform: scaleX(-1);
+        }
+        #capture-btn {
+            padding: 10px 20px;
+            background: #1877F2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 0;
+            display: block;
+            width: 100%;
+        }
+        #ocr-result {
+            white-space: pre-line;
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
     <h1>TƯƠNG TÁC VẮC XIN</h1>
-    <p>Nhập tên vắc xin để tra cứu:</p>
+    <p>Nhập tên vắc xin để tra cứu hoặc dùng camera để nhận diện từ đơn:</p>
 
-    <!-- Dropdown gợi ý -->
+    <!-- Phần OCR và Camera -->
+    <div id="ocr-section">
+        <h3>Quét đơn vắc xin bằng camera</h3>
+        <video id="video" width="320" height="240" autoplay></video>
+        <button id="capture-btn">Chụp ảnh</button>
+        <div id="ocr-result"></div>
+    </div>
+
+    <!-- Autocomplete -->
     <div class="dropdown-container">
         <input type="text" id="team-input" placeholder="Nhập tên vắc xin...">
         <div id="suggestions"></div>
     </div>
 
     <div class="main-flex">
-        <!-- Phần hiển thị danh sách các hoạt chất đã chọn -->
         <div class="selected-teams">
             <h2>Các vắc xin đã chọn:</h2>
             <ul id="selected-teams-list"></ul>
         </div>
-        <!-- Kết quả hiển thị -->
         <div class="results">
             <h2>Các tương tác giữa các vắc xin đã chọn:</h2>
             <ul id="match-results"></ul>
         </div>
     </div>
 
+    <!-- Thư viện Tesseract.js cho OCR -->
+    <script src="https://unpkg.com/tesseract.js@v6.0.0/dist/tesseract.min.js"></script>
+    <!-- Script chính -->
     <script src="script.js"></script>
+    <!-- Script xử lý camera & OCR -->
+    <script>
+    // Khởi tạo camera
+    const video = document.getElementById('video');
+    const captureBtn = document.getElementById('capture-btn');
+    const ocrResult = document.getElementById('ocr-result');
+    let isProcessing = false;
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(stream => {
+            video.srcObject = stream;
+        })
+        .catch(err => {
+            ocrResult.textContent = 'Lỗi truy cập camera: ' + err.message;
+        });
+
+    captureBtn.addEventListener('click', async () => {
+        if (isProcessing) return;
+        isProcessing = true;
+        try {
+            // Chụp ảnh từ video
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+
+            ocrResult.textContent = 'Đang nhận diện...';
+
+            // Nhận diện văn bản
+            const { data: { text } } = await Tesseract.recognize(
+                canvas,
+                'eng+vie',
+                { logger: m => console.log(m) }
+            );
+
+            // Xử lý kết quả
+            const cleanedText = text
+                .replace(/[^a-zA-Z0-9à-ỹ\s]/gi, '')
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 2);
+
+            ocrResult.textContent = 'Đã nhận diện:\n' + cleanedText.join('\n');
+
+            // Tự động thêm tối đa 3 vắc xin đầu tiên
+            const vaccinesToAdd = cleanedText.slice(0, 3);
+            vaccinesToAdd.forEach(addVaccineFromOCR);
+
+        } catch (err) {
+            ocrResult.textContent = 'Lỗi OCR: ' + err.message;
+        } finally {
+            isProcessing = false;
+        }
+    });
+
+    // Hàm tự động thêm vắc xin từ OCR
+    function addVaccineFromOCR(vaccineName) {
+        const input = document.getElementById('team-input');
+        input.value = vaccineName;
+
+        // Kích hoạt sự kiện input để hiện autocomplete
+        const event = new Event('input', { bubbles: true });
+        input.dispatchEvent(event);
+
+        // Tự động chọn suggestion đầu tiên sau 300ms
+        setTimeout(() => {
+            const firstSuggestion = document.querySelector('#suggestions div');
+            if (firstSuggestion) {
+                firstSuggestion.click();
+            }
+        }, 300);
+    }
+    </script>
 </body>
 </html>
