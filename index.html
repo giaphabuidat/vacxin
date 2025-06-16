@@ -122,6 +122,10 @@
         <button id="capture-btn">Chụp ảnh</button>
         <div id="ocr-result"></div>
     </div>
+    <div style="margin-bottom: 16px;">
+  <label for="upload-image" style="font-weight:600;">Hoặc tải lên ảnh đơn thuốc:</label><br>
+  <input type="file" id="upload-image" accept="image/*">
+    </div>
 
     <!-- Autocomplete -->
     <div class="dropdown-container">
@@ -217,5 +221,34 @@
         }, 300);
     }
     </script>
+    <script>
+document.getElementById('upload-image').addEventListener('change', async function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    ocrResult.textContent = 'Đang nhận diện...';
+    try {
+        const { data: { text } } = await Tesseract.recognize(
+            file,
+            'eng+vie',
+            { logger: m => console.log(m) }
+        );
+        const cleanedText = text
+            .replace(/[^a-zA-Z0-9à-ỹ\s]/gi, '')
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 2);
+
+        ocrResult.textContent = 'Đã nhận diện:\n' + cleanedText.join('\n');
+
+        // Tự động thêm tối đa 3 vắc xin đầu tiên
+        const vaccinesToAdd = cleanedText.slice(0, 3);
+        vaccinesToAdd.forEach(addVaccineFromOCR);
+
+    } catch (err) {
+        ocrResult.textContent = 'Lỗi OCR: ' + err.message;
+    }
+});
+</script>
+
 </body>
 </html>
